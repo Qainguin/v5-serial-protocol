@@ -1,5 +1,5 @@
 {
-  "name": "v5-serial-protocol",
+  "name": "@lemlib/v5-serial-protocol",
   "version": "0.5.0",
   "description": "TODO",
   "main": "dist/v5-serial-protocol.cjs.js",
