@@ -1,0 +1,19 @@
+# dev dirs
+.husky
+.github
+
+# config files
+.prettierignore
+.eslintrc.json
+webpack.config.js
+.commitlintrc.json
+
+# source maps 
+*.js.map
+
+# packages 
+*.tgz
+
+# ts 
+tsconfig.json 
+*.tsbuildinfo
