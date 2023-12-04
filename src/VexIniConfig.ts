@@ -1,4 +1,4 @@
-import { ZerobaseSlotNumber } from "./Vex";
+import { type ZerobaseSlotNumber } from "./Vex";
 
 export class ProgramIniConfig {
   baseName = "slot_1";
@@ -14,9 +14,10 @@ export class ProgramIniConfig {
     date: "",
     timezone: "0",
   };
-  config: { [key: number]: string } = {}; // { port_22: "..." }
-  controller1: { [key: string]: string } = {};
-  controller2: { [key: string]: string } = {};
+
+  config: Record<number, string> = {}; // { port_22: "..." }
+  controller1: Record<string, string> = {};
+  controller2: Record<string, string> = {};
   // private options: { [key: string]: string } = {};
 
   constructor() {
@@ -94,7 +95,7 @@ export class ProgramIniConfig {
         str.push(s + ' = "' + t + '"\n');
       }
     }
-    if (Object.keys(this.controller1).length) {
+    if (Object.keys(this.controller1).length > 0) {
       str.push(";" + "\n");
       str.push("[controller_1]" + "\n");
       for (const property in this.controller1) {
@@ -105,7 +106,7 @@ export class ProgramIniConfig {
         }
       }
     }
-    if (Object.keys(this.controller2).length) {
+    if (Object.keys(this.controller2).length > 0) {
       str.push(";" + "\n");
       str.push("[controller_2]" + "\n");
       for (const property in this.controller2) {

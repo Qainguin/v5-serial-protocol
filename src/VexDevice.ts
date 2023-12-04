@@ -1,24 +1,24 @@
 import { unzip } from "unzipit";
 import {
-  MatchMode,
+  type MatchMode,
   SerialDeviceType,
-  SlotNumber,
-  ISmartDeviceInfo,
+  type SlotNumber,
+  type ISmartDeviceInfo,
   SmartDeviceType,
   FileVendor,
-  IProgramInfo,
+  type IProgramInfo,
   FileExitAction,
-  IFileHandle,
+  type IFileHandle,
   FileDownloadTarget,
   USER_FLASH_USR_CODE_START,
-  IFileBasicInfo,
-  IFileWriteRequest,
+  type IFileBasicInfo,
+  type IFileWriteRequest,
   RadioChannelType,
 } from "./Vex";
 import { V5SerialConnection } from "./VexConnection";
 import { VexEventTarget } from "./VexEvent";
 import { VexFirmwareVersion } from "./VexFirmwareVersion";
-import { ProgramIniConfig } from "./VexIniConfig";
+import { type ProgramIniConfig } from "./VexIniConfig";
 import {
   EraseFileH2DPacket,
   EraseFileReplyD2HPacket,
@@ -44,14 +44,14 @@ import {
   WriteKeyValueReplyD2HPacket,
 } from "./VexPacket";
 
-export function downloadFileFromInternet(link: string) {
-  return new Promise<ArrayBuffer>((resolve, reject) => {
-    var oReq = new XMLHttpRequest();
+export async function downloadFileFromInternet(link: string): Promise<ArrayBuffer> {
+  return await new Promise<ArrayBuffer>((resolve, reject) => {
+    const oReq = new XMLHttpRequest();
     oReq.open("GET", link, true);
     oReq.responseType = "arraybuffer";
 
     oReq.onload = function (_oEvent) {
-      var arrayBuffer = oReq.response; // Note: not oReq.responseText
+      const arrayBuffer = oReq.response; // Note: not oReq.responseText
       resolve(arrayBuffer);
     };
 
@@ -63,12 +63,12 @@ export function downloadFileFromInternet(link: string) {
   });
 }
 
-export function sleepUntil(
-  f: (...args: any[]) => any,
+export async function sleepUntil(
+  f: (...args: unknown[]) => unknown,
   timeout: number,
   interval = 20,
-) {
-  return new Promise<boolean>((resolve) => {
+): Promise<boolean> {
+  return await new Promise<boolean>((resolve) => {
     const timeWas = new Date().getTime();
     const wait = setInterval(async function () {
       if (await f()) {
@@ -83,17 +83,17 @@ export function sleepUntil(
   });
 }
 
-export function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+export async function sleep(ms: number): Promise<unknown> {
+  return await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function shallowEqual(object1: any, object2: any) {
+function shallowEqual(object1: object, object2: object): boolean {
   const keys1 = Object.keys(object1);
   const keys2 = Object.keys(object2);
   if (keys1.length !== keys2.length) {
     return false;
   }
-  for (let key of keys1) {
+  for (const key of keys1) {
     if (object1[key] !== object2[key]) {
       return false;
     }
@@ -156,7 +156,7 @@ class V5SerialDeviceProxyHandler implements ProxyHandler<{}> {
   }
 
   set(target: any, key: any, value: any): boolean {
-    let oldValue = (target as any)[key];
+    const oldValue = target[key];
     if (oldValue === value) {
       return true;
     } else if (
@@ -168,7 +168,7 @@ class V5SerialDeviceProxyHandler implements ProxyHandler<{}> {
       if (shallowEqual(oldValue, value)) return true;
     }
 
-    (target as any)[key] = value;
+    target[key] = value;
 
     this.parent?.childSet(this.rootkey, key, value);
 
@@ -207,6 +207,7 @@ class V5SerialDeviceState {
     systemVersion: VexFirmwareVersion.allZero(),
     uniqueId: 0,
   };
+
   controllers = [
     {
       battery: 0,
@@ -218,6 +219,7 @@ class V5SerialDeviceState {
       isAvailable: false,
     },
   ];
+
   devices: ISmartDeviceInfo[] = [];
   isFieldControllerConnected = false;
   matchMode: MatchMode = "disabled";
@@ -238,7 +240,7 @@ class V5SerialDeviceState {
 }
 
 export class V5Brain {
-  private state: V5SerialDeviceState;
+  private readonly state: V5SerialDeviceState;
 
   constructor(state: V5SerialDeviceState) {
     this.state = state;
@@ -256,10 +258,10 @@ export class V5Brain {
     (async () => {
       if (this.state.brain.activeProgram === value) return;
 
-      let conn = this.state._instance.connection;
+      const conn = this.state._instance.connection;
       if (!conn) return;
 
-      let fn =
+      const fn =
         value === 0
           ? await conn.stopProgram()
           : await conn.loadProgram(value as SlotNumber);
@@ -301,7 +303,7 @@ export class V5Brain {
   }
 
   async getValue(key: string) {
-    let result = await this.state._instance.connection?.writeDataAsync(
+    const result = await this.state._instance.connection?.writeDataAsync(
       new ReadKeyValueH2DPacket(key),
     );
     return result instanceof ReadKeyValueReplyD2HPacket
@@ -310,25 +312,25 @@ export class V5Brain {
   }
 
   async setValue(key: string, value: string) {
-    let result = await this.state._instance.connection?.writeDataAsync(
+    const result = await this.state._instance.connection?.writeDataAsync(
       new WriteKeyValueH2DPacket(key, value),
     );
-    return result instanceof WriteKeyValueReplyD2HPacket ? true : false;
+    return result instanceof WriteKeyValueReplyD2HPacket;
   }
 
   async listFiles(vendor = FileVendor.USER) {
-    let conn = this.state._instance.connection;
+    const conn = this.state._instance.connection;
     if (!conn) return undefined;
 
-    let result = await conn.writeDataAsync(
+    const result = await conn.writeDataAsync(
       new GetDirectoryFileCountH2DPacket(vendor),
     );
     if (!(result instanceof GetDirectoryFileCountReplyD2HPacket))
       return undefined;
 
-    let files: IFileHandle[] = [];
+    const files: IFileHandle[] = [];
     for (let i = 0; i < result.count; i++) {
-      let result2 = await conn.writeDataAsync(
+      const result2 = await conn.writeDataAsync(
         new GetDirectoryEntryH2DPacket(i),
       );
       if (!(result2 instanceof GetDirectoryEntryReplyD2HPacket))
@@ -356,30 +358,30 @@ export class V5Brain {
   }
 
   async listProgram() {
-    let conn = this.state._instance.connection;
+    const conn = this.state._instance.connection;
     if (!conn?.isConnected) return undefined;
 
-    let files = await this.listFiles(FileVendor.USER);
+    const files = await this.listFiles(FileVendor.USER);
     if (files === undefined) return undefined;
 
-    let programList: IProgramInfo[] = [];
-    let iniFiles = files.filter(
+    const programList: IProgramInfo[] = [];
+    const iniFiles = files.filter(
       (file) => file && file.filename.search(/.ini$/) > 0,
-    ) as IFileHandle[];
+    );
 
     for (let i = 0; i < iniFiles.length; i++) {
-      let ini = iniFiles[i];
+      const ini = iniFiles[i];
       if (!ini.size) continue;
 
-      let programName = (/(.+?)(\.[^.]*$|$)/.exec(ini.filename) || "")[1];
-      let bin = files.filter(
+      const programName = (/(.+?)(\.[^.]*$|$)/.exec(ini.filename) || "")[1];
+      const bin = files.filter(
         (e) => e && e.filename === programName + ".bin",
       )[0];
-      if (!bin || !bin.timestamp || !bin.size) continue;
+      if (!bin?.timestamp || !bin.size) continue;
 
-      let n = new Date();
+      const n = new Date();
       n.setTime(1000 * bin.timestamp);
-      let program: IProgramInfo = {
+      const program: IProgramInfo = {
         name: programName,
         binfile: bin.filename,
         size: ini.size + bin.size,
@@ -388,7 +390,7 @@ export class V5Brain {
         requestedSlot: -1,
       };
 
-      let result2 = await conn.writeDataAsync(
+      const result2 = await conn.writeDataAsync(
         new GetProgramSlotInfoH2DPacket(FileVendor.USER, program.binfile),
       );
       if (result2 instanceof GetProgramSlotInfoReplyD2HPacket) {
@@ -405,7 +407,7 @@ export class V5Brain {
     downloadTarget = FileDownloadTarget.FILE_TARGET_QSPI,
     progressCallback?: (current: number, total: number) => void,
   ) {
-    let conn = this.state._instance.connection;
+    const conn = this.state._instance.connection;
     if (!conn?.isConnected) return undefined;
 
     this.state._isFileTransferring = true;
@@ -420,7 +422,11 @@ export class V5Brain {
     }
 
     try {
-      return conn.downloadFileToHost(handle, downloadTarget, progressCallback);
+      return await conn.downloadFileToHost(
+        handle,
+        downloadTarget,
+        progressCallback,
+      );
     } catch (e) {
       throw e;
     } finally {
@@ -429,7 +435,7 @@ export class V5Brain {
   }
 
   async removeFile(request: IFileBasicInfo | string) {
-    let conn = this.state._instance.connection;
+    const conn = this.state._instance.connection;
     if (!conn?.isConnected) return undefined;
 
     let vendor: FileVendor, filename: string;
@@ -443,10 +449,10 @@ export class V5Brain {
       filename = request.filename;
     }
 
-    let result = await conn.writeDataAsync(
+    const result = await conn.writeDataAsync(
       new EraseFileH2DPacket(vendor, filename),
     );
-    let result2 = await conn.writeDataAsync(
+    const result2 = await conn.writeDataAsync(
       new ExitFileTransferH2DPacket(FileExitAction.EXIT_HALT),
     );
 
@@ -457,14 +463,14 @@ export class V5Brain {
   }
 
   async removeAllFiles() {
-    let conn = this.state._instance.connection;
+    const conn = this.state._instance.connection;
     if (!conn?.isConnected) return undefined;
 
-    let result = await conn.writeDataAsync(
+    const result = await conn.writeDataAsync(
       new FileClearUpH2DPacket(FileVendor.USER),
       30000,
     );
-    return result instanceof FileClearUpReplyD2HPacket ? true : false;
+    return result instanceof FileClearUpReplyD2HPacket;
   }
 
   async uploadFirmware(
@@ -472,8 +478,8 @@ export class V5Brain {
     usingVersion?: string,
     progressCallback?: (state: string, current: number, total: number) => void,
   ) {
-    let device = this.state._instance;
-    let conn = device.connection;
+    const device = this.state._instance;
+    const conn = device.connection;
     if (!conn?.isConnected) return undefined;
 
     const pcb = progressCallback ?? (() => {});
@@ -487,7 +493,7 @@ export class V5Brain {
         const catalog = await downloadFileFromInternet(
           publicUrl + "catalog.txt",
         );
-        let latestVersion = new TextDecoder().decode(catalog);
+        const latestVersion = new TextDecoder().decode(catalog);
         usingVersion = latestVersion;
 
         pcb("FETCH CATALOG", 1, 1);
@@ -504,7 +510,7 @@ export class V5Brain {
       pcb("FETCH VEXOS", 1, 1);
       pcb("UNZIP VEXOS", 0, 1);
 
-      let { entries } = await unzip(vexos);
+      const { entries } = await unzip(vexos);
 
       bootBin = await entries[usingVersion + "/BOOT.bin"].arrayBuffer();
       assertBin = await entries[usingVersion + "/assets.bin"].arrayBuffer();
@@ -519,10 +525,10 @@ export class V5Brain {
 
       pcb("FACTORY ENB BOOT", 0, 0);
 
-      let result = await conn.writeDataAsync(new FactoryEnableH2DPacket());
+      const result = await conn.writeDataAsync(new FactoryEnableH2DPacket());
       if (!(result instanceof FactoryEnableReplyD2HPacket)) return false;
 
-      let bootWriteRequest: IFileWriteRequest = {
+      const bootWriteRequest: IFileWriteRequest = {
         filename: "null.bin",
         vendor: FileVendor.USER,
         loadAddress: USER_FLASH_USR_CODE_START,
@@ -533,13 +539,16 @@ export class V5Brain {
         linkedFile: undefined,
       };
 
-      let result2 = await conn.uploadFileToDevice(bootWriteRequest, (c, t) =>
-        pcb("UPLOAD BOOT", c, t),
+      const result2 = await conn.uploadFileToDevice(
+        bootWriteRequest,
+        (c, t) => {
+          pcb("UPLOAD BOOT", c, t);
+        },
       );
       if (!result2) return false;
 
       while (true) {
-        let result3 = await conn.writeDataAsync(
+        const result3 = await conn.writeDataAsync(
           new FactoryStatusH2DPacket(),
           10000,
         );
@@ -567,10 +576,10 @@ export class V5Brain {
 
       pcb("FACTORY ENB ASSERT", 0, 0);
 
-      let result5 = await conn.writeDataAsync(new FactoryEnableH2DPacket());
+      const result5 = await conn.writeDataAsync(new FactoryEnableH2DPacket());
       if (!(result5 instanceof FactoryEnableReplyD2HPacket)) return false;
 
-      let assertWriteRequest: IFileWriteRequest = {
+      const assertWriteRequest: IFileWriteRequest = {
         filename: "null.bin",
         vendor: FileVendor.USER,
         loadAddress: USER_FLASH_USR_CODE_START,
@@ -581,13 +590,16 @@ export class V5Brain {
         linkedFile: undefined,
       };
 
-      let result6 = await conn.uploadFileToDevice(assertWriteRequest, (c, t) =>
-        pcb("UPLOAD ASSERT", c, t),
+      const result6 = await conn.uploadFileToDevice(
+        assertWriteRequest,
+        (c, t) => {
+          pcb("UPLOAD ASSERT", c, t);
+        },
       );
       if (!result6) return false;
 
       while (true) {
-        let result7 = await conn.writeDataAsync(
+        const result7 = await conn.writeDataAsync(
           new FactoryStatusH2DPacket(),
           10000,
         );
@@ -628,8 +640,8 @@ export class V5Brain {
     coldFileBuf: Uint8Array | undefined,
     progressCallback: (state: string, current: number, total: number) => void,
   ) {
-    let device = this.state._instance;
-    let conn = device.connection;
+    const device = this.state._instance;
+    const conn = device.connection;
     if (!conn?.isConnected) return undefined;
 
     this.state._isFileTransferring = true;
@@ -643,7 +655,7 @@ export class V5Brain {
 
         console.log("Transferring to download channel");
 
-        let p1 = await device.radio.changeChannel(RadioChannelType.DOWNLOAD);
+        const p1 = await device.radio.changeChannel(RadioChannelType.DOWNLOAD);
         if (!p1) return false;
 
         await sleep(250);
@@ -656,7 +668,7 @@ export class V5Brain {
         console.log("Transferred to download channel");
       }
 
-      let p2 = await conn.uploadProgramToDevice(
+      const p2 = await conn.uploadProgramToDevice(
         iniConfig,
         binFileBuf,
         coldFileBuf,
@@ -670,7 +682,7 @@ export class V5Brain {
 
         console.log("Transferring back to pit channel");
 
-        let p3 = await device.radio.changeChannel(RadioChannelType.PIT);
+        const p3 = await device.radio.changeChannel(RadioChannelType.PIT);
         if (!p3) return false;
 
         await sleep(250);
@@ -697,11 +709,11 @@ export class V5Brain {
   ) {
     this.state._isFileTransferring = true;
 
-    let conn = this.state._instance.connection;
+    const conn = this.state._instance.connection;
     if (!conn?.isConnected) return undefined;
 
     try {
-      return conn.uploadFileToDevice(request, progressCallback);
+      return await conn.uploadFileToDevice(request, progressCallback);
     } catch (e) {
       throw e;
     } finally {
@@ -711,7 +723,7 @@ export class V5Brain {
 }
 
 export class V5Battery {
-  private state: V5SerialDeviceState;
+  private readonly state: V5SerialDeviceState;
 
   constructor(state: V5SerialDeviceState) {
     this.state = state;
@@ -727,7 +739,7 @@ export class V5Battery {
 }
 
 export class V5BrainButton {
-  private state: V5SerialDeviceState;
+  private readonly state: V5SerialDeviceState;
 
   constructor(state: V5SerialDeviceState) {
     this.state = state;
@@ -743,7 +755,7 @@ export class V5BrainButton {
 }
 
 export class V5BrainSettings {
-  private state: V5SerialDeviceState;
+  private readonly state: V5SerialDeviceState;
 
   constructor(state: V5SerialDeviceState) {
     this.state = state;
@@ -763,8 +775,8 @@ export class V5BrainSettings {
 }
 
 export class V5Controller {
-  private state: V5SerialDeviceState;
-  private controllerIndex: number;
+  private readonly state: V5SerialDeviceState;
+  private readonly controllerIndex: number;
 
   constructor(state: V5SerialDeviceState, controllerIndex: number) {
     this.state = state;
@@ -789,8 +801,8 @@ export class V5Controller {
 }
 
 export class V5SmartDevice {
-  private state: V5SerialDeviceState;
-  private deviceIndex: number;
+  private readonly state: V5SerialDeviceState;
+  private readonly deviceIndex: number;
 
   constructor(state: V5SerialDeviceState, index: number) {
     this.state = state;
@@ -817,7 +829,7 @@ export class V5SmartDevice {
 }
 
 export class V5Radio {
-  private state: V5SerialDeviceState;
+  private readonly state: V5SerialDeviceState;
 
   constructor(state: V5SerialDeviceState) {
     this.state = state;
@@ -848,10 +860,10 @@ export class V5Radio {
   }
 
   async changeChannel(channel: RadioChannelType) {
-    let result = await this.state._instance.connection?.writeDataAsync(
+    const result = await this.state._instance.connection?.writeDataAsync(
       new FileControlH2DPacket(1, channel),
     );
-    return result instanceof FileControlReplyD2HPacket ? true : false;
+    return result instanceof FileControlReplyD2HPacket;
   }
 }
 
@@ -900,7 +912,7 @@ export class V5SerialDevice extends VexSerialDevice {
   }
 
   get devices() {
-    let rtn = [];
+    const rtn = [];
     for (let i = 1; i <= this.state.devices.length; i++) {
       if (this.state.devices[i]) rtn.push(new V5SmartDevice(this.state, i));
     }
@@ -927,7 +939,7 @@ export class V5SerialDevice extends VexSerialDevice {
   }
 
   async mockTouch(x: number, y: number, press: boolean) {
-    return (await this.connection?.mockTouch(x, y, press)) ? true : false;
+    return !!(await this.connection?.mockTouch(x, y, press));
   }
 
   async connect(conn?: V5SerialConnection): Promise<boolean> {
@@ -940,11 +952,11 @@ export class V5SerialDevice extends VexSerialDevice {
     } else {
       let tryIdx = 0;
       while (true) {
-        let c = new V5SerialConnection(this.defaultSerial);
+        const c = new V5SerialConnection(this.defaultSerial);
 
-        let result = await c.open(tryIdx++, true);
+        const result = await c.open(tryIdx++, true);
         if (result === undefined) return false; // no port left
-        if (result === false) {
+        if (!result) {
           // has been opened
           await c.close();
           continue;
@@ -977,7 +989,7 @@ export class V5SerialDevice extends VexSerialDevice {
     if (this.isConnected) return true;
     if (timeout < 0) return false;
 
-    let endTime = new Date().getTime() + timeout;
+    const endTime = new Date().getTime() + timeout;
 
     if (this._isReconnecting) {
       let successB4Timeout;
@@ -999,18 +1011,18 @@ export class V5SerialDevice extends VexSerialDevice {
 
       let tryIdx = 0;
       while (true) {
-        let c = new V5SerialConnection(this.defaultSerial);
+        const c = new V5SerialConnection(this.defaultSerial);
 
-        let result = await c.open(tryIdx++, false);
+        const result = await c.open(tryIdx++, false);
 
         if (result === undefined) break; // no port left
-        if (result === false) {
+        if (!result) {
           // has been opened
           await c.close();
           continue;
         }
 
-        let result2 = await c.getSystemStatus(200);
+        const result2 = await c.getSystemStatus(200);
         if (result2 === null) {
           // no response
           await c.close();
@@ -1033,9 +1045,9 @@ export class V5SerialDevice extends VexSerialDevice {
       if (this.isConnected) break;
 
       // try again every second or when the number of ports is different
-      let getPortCount = async () =>
+      const getPortCount = async () =>
         (await this.defaultSerial.getPorts()).length;
-      let portsCount = await getPortCount();
+      const portsCount = await getPortCount();
       await sleepUntil(async () => (await getPortCount()) !== portsCount, 1000);
     }
 
@@ -1061,7 +1073,7 @@ export class V5SerialDevice extends VexSerialDevice {
   }
 
   async refresh() {
-    let ssPacket = await this.connection?.getSystemStatus();
+    const ssPacket = await this.connection?.getSystemStatus();
     if (!ssPacket) {
       this.state.brain.isAvailable = false;
       return false;
@@ -1071,7 +1083,7 @@ export class V5SerialDevice extends VexSerialDevice {
     this.state.brain.cpu1Version = ssPacket.cpu1Version;
     this.state.brain.systemVersion = ssPacket.systemVersion;
 
-    let flags2 = ssPacket.sysflags[2];
+    const flags2 = ssPacket.sysflags[2];
     this.state.controllers[0].isCharging = (flags2 & 0b10000000) !== 0;
     this.state.matchMode =
       flags2 & 0b00100000
@@ -1081,17 +1093,17 @@ export class V5SerialDevice extends VexSerialDevice {
           : "driver";
     this.state.isFieldControllerConnected = (flags2 & 0b00010000) !== 0;
 
-    let flags4 = ssPacket.sysflags[4];
+    const flags4 = ssPacket.sysflags[4];
     this.state.brain.settings.usingLanguage = (flags4 & 0b11110000) >> 4;
     this.state.brain.settings.isWhiteTheme = (flags4 & 0b00000100) !== 0;
     this.state.brain.settings.isScreenReversed = (flags4 & 0b00000001) === 0;
 
     this.state.brain.uniqueId = ssPacket.uniqueId;
 
-    let sfPacket = await this.connection?.getSystemFlags();
+    const sfPacket = await this.connection?.getSystemFlags();
     if (!sfPacket) return false;
 
-    let flags5 = sfPacket.flags; // Math.pow(2, 32 - i);
+    const flags5 = sfPacket.flags; // Math.pow(2, 32 - i);
     this.state.radio.isRadioData = (flags5 & Math.pow(2, 32 - 12)) !== 0;
     this.state.brain.button.isDoublePressed =
       (flags5 & Math.pow(2, 32 - 14)) !== 0;
@@ -1112,7 +1124,7 @@ export class V5SerialDevice extends VexSerialDevice {
     this.state.brain.isAvailable =
       !this.isV5Controller || this.state.radio.isConnected;
 
-    let rdPacket = await this.connection?.getRadioStatus();
+    const rdPacket = await this.connection?.getRadioStatus();
     if (!rdPacket) return false;
 
     this.state.radio.channel = rdPacket.channel;
@@ -1120,7 +1132,7 @@ export class V5SerialDevice extends VexSerialDevice {
     this.state.radio.signalQuality = rdPacket.quality;
     this.state.radio.signalStrength = rdPacket.strength;
 
-    let dsPacket = await this.connection?.getDeviceStatus();
+    const dsPacket = await this.connection?.getDeviceStatus();
     if (!dsPacket) return false;
 
     let missingPorts = this.state.devices
@@ -1128,7 +1140,7 @@ export class V5SerialDevice extends VexSerialDevice {
       .filter((p) => p !== undefined);
 
     for (let i = 0; i < dsPacket.devices.length; i++) {
-      let device = dsPacket.devices[i];
+      const device = dsPacket.devices[i];
       this.state.devices[device.port] = device;
 
       // remove device port from missing ports

@@ -6,17 +6,17 @@ import {
   FileInitOption,
   FileLoadAction,
   FileVendor,
-  IFileBasicInfo,
-  IFileWriteRequest,
-  IPacketCallback,
-  MatchMode,
+  type IFileBasicInfo,
+  type IFileWriteRequest,
+  type IPacketCallback,
+  type MatchMode,
   SerialDeviceType,
-  SlotNumber,
+  type SlotNumber,
   USER_FLASH_USR_CODE_START,
   USER_PROG_CHUNK_SIZE,
 } from "./Vex";
 import { VexEventTarget } from "./VexEvent";
-import { ProgramIniConfig } from "./VexIniConfig";
+import { type ProgramIniConfig } from "./VexIniConfig";
 import {
   MatchStatusReplyD2HPacket,
   DeviceBoundPacket,
@@ -25,8 +25,7 @@ import {
   MatchModeReplyD2HPacket,
   GetSystemStatusReplyD2HPacket,
   GetSystemStatusH2DPacket,
-  Packet,
-  HostBoundPacket,
+  type HostBoundPacket,
   InitFileTransferH2DPacket,
   InitFileTransferReplyD2HPacket,
   LinkFileH2DPacket,
@@ -53,6 +52,7 @@ import {
   SendDashTouchH2DPacket,
   SendDashTouchReplyD2HPacket,
 } from "./VexPacket";
+import { type VexFirmwareVersion } from "./VexFirmwareVersion";
 
 const thePacketEncoder = PacketEncoder.getInstance();
 
@@ -63,15 +63,19 @@ const thePacketEncoder = PacketEncoder.getInstance();
 export class VexSerialConnection extends VexEventTarget {
   filters: SerialPortFilter[] = [{ usbVendorId: 10376 }];
 
-  writer: WritableStreamDefaultWriter<any> | undefined;
-  reader: ReadableStreamDefaultReader<any> | undefined;
+  writer: WritableStreamDefaultWriter<unknown> | undefined;
+  reader: ReadableStreamDefaultReader<unknown> | undefined;
   port: SerialPort | undefined;
   serial: Serial;
 
   callbacksQueue: IPacketCallback[] = [];
 
-  get isConnected() {
-    return this.port && this.reader && this.writer ? true : false;
+  get isConnected(): boolean {
+    return (
+      this.port !== undefined &&
+      this.reader !== undefined &&
+      this.writer !== undefined
+    );
   }
 
   constructor(serial: Serial) {
@@ -79,7 +83,7 @@ export class VexSerialConnection extends VexEventTarget {
     this.serial = serial;
   }
 
-  async close() {
+  async close(): Promise<void> {
     if (!this.isConnected) return;
 
     try {
@@ -109,15 +113,18 @@ export class VexSerialConnection extends VexEventTarget {
     }
   }
 
-  async open(use: number | undefined = 0, askUser: boolean = true) {
-    if (this.port) throw new Error("Already connected.");
+  async open(
+    use: number | undefined = 0,
+    askUser: boolean = true,
+  ): Promise<boolean | undefined> {
+    if (this.port !== undefined) throw new Error("Already connected.");
 
     let port: SerialPort | undefined;
 
     if (use !== undefined) {
-      let ports = (await this.serial.getPorts())
+      const ports = (await this.serial.getPorts())
         .filter((p) => {
-          let info = p.getInfo();
+          const info = p.getInfo();
           return this.filters.find(
             (f) =>
               (f.usbVendorId === undefined ||
@@ -126,12 +133,12 @@ export class VexSerialConnection extends VexEventTarget {
                 f.usbProductId === info.usbProductId),
           );
         })
-        .filter((e) => !e.readable);
+        .filter((e) => e.readable !== null);
 
       port = ports[use];
     }
 
-    if (!port && askUser) {
+    if (port == null && askUser) {
       try {
         port = await this.serial.requestPort({ filters: this.filters });
       } catch (e) {
@@ -139,17 +146,17 @@ export class VexSerialConnection extends VexEventTarget {
       }
     }
 
-    if (!port) return undefined;
+    if (port == null) return undefined;
 
-    if (port.readable) return false;
+    if (port.readable == null) return false;
 
     try {
       await port.open({ baudRate: 115200 });
 
       this.port = port;
 
-      this.port.addEventListener("disconnect", async () => {
-        await this.close();
+      this.port.addEventListener("disconnect", () => {
+        void this.close();
       });
 
       this.emit("connected", undefined);
@@ -168,69 +175,74 @@ export class VexSerialConnection extends VexEventTarget {
     rawData: DeviceBoundPacket | Uint8Array,
     resolve: (data: HostBoundPacket | ArrayBuffer | AckType) => void,
     timeout: number = 1000,
-  ) {
+  ): void {
     this.writeDataAsync(rawData, timeout).then(resolve);
   }
 
-  writeDataAsync(
+  async writeDataAsync(
     rawData: DeviceBoundPacket | Uint8Array,
     timeout: number = 1000,
-  ) {
-    return new Promise<HostBoundPacket | ArrayBuffer | AckType>(
-      async (done) => {
+  ): Promise<HostBoundPacket | ArrayBuffer | AckType> {
+    return await new Promise<HostBoundPacket | ArrayBuffer | AckType>(
+      (resolve) => {
         if (this.writer === undefined) {
-          done(AckType.CDC2_NACK);
+          resolve(AckType.CDC2_NACK);
           return;
         }
 
-        let data: Uint8Array =
+        const data: Uint8Array =
           rawData instanceof DeviceBoundPacket ? rawData.data : rawData;
-        let cb = {
-          callback: done,
+        const cb = {
+          callback: resolve,
           timeout: setTimeout(() => {
             this.callbacksQueue.shift()?.callback(AckType.TIMEOUT);
           }, timeout),
           wantedCommandId:
             rawData instanceof DeviceBoundPacket
-              ? (rawData.constructor as any).COMMAND_ID
+              ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (rawData.constructor as any).COMMAND_ID
               : undefined,
           wantedCommandExId:
             rawData instanceof DeviceBoundPacket
-              ? (rawData.constructor as any).COMMAND_EXTENDED_ID
+              ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (rawData.constructor as any).COMMAND_EXTENDED_ID
               : undefined,
         };
         this.callbacksQueue.push(cb);
 
-        try {
-          this.writer.write(data).then(() => {
+        this.writer
+          .write(data)
+          .then(() => {
             logData(data, 100);
+          })
+          .catch(() => {
+            this.callbacksQueue.splice(this.callbacksQueue.indexOf(cb), 1);
+            resolve(AckType.WRITE_ERROR);
           });
-        } catch (error) {
-          this.callbacksQueue.splice(this.callbacksQueue.indexOf(cb), 1);
-          done(AckType.WRITE_ERROR);
-          return;
-        }
       },
     );
   }
 
-  protected async readData(cache: Uint8Array, expectedSize: number) {
-    if (!this.reader) throw new Error("No reader");
+  protected async readData(
+    cache: Uint8Array,
+    expectedSize: number,
+  ): Promise<Uint8Array> {
+    if (this.reader == null) throw new Error("No reader");
 
     while (cache.byteLength < expectedSize) {
       const { value: readData, done: isDone } = await this.reader.read();
 
       if (isDone) throw new Error("No data");
 
-      cache = binaryArrayJoin(cache, readData);
+      cache = binaryArrayJoin(cache, readData as Uint8Array);
     }
 
     return cache;
   }
 
-  protected async startReader() {
-    let cache = new Uint8Array([]),
-      sliceIdx = 0;
+  protected async startReader(): Promise<void> {
+    let cache = new Uint8Array([]);
+    let sliceIdx = 0;
     for (;;)
       try {
         cache = await this.readData(cache, 5);
@@ -261,7 +273,7 @@ export class VexSerialConnection extends VexEventTarget {
         let wantedCmdId: number | undefined;
         let wantedCmdExId: number | undefined;
         let tryIdx = 0;
-        while ((callbackInfo = this.callbacksQueue[tryIdx++])) {
+        while ((callbackInfo = this.callbacksQueue[tryIdx++]) !== null) {
           wantedCmdId = callbackInfo?.wantedCommandId;
           wantedCmdExId = callbackInfo?.wantedCommandExId;
 
@@ -280,17 +292,17 @@ export class VexSerialConnection extends VexEventTarget {
           continue;
         }
 
-        let data = cache.slice(0, sliceIdx);
-        let packageType =
+        const data = cache.slice(0, sliceIdx);
+        const PackageType =
           thePacketEncoder.allPacketsTable[wantedCmdId + " " + wantedCmdExId];
         if (
           (wantedCmdId === undefined && wantedCmdExId === undefined) ||
-          packageType === undefined
+          PackageType === undefined
         ) {
           callbackInfo.callback(data);
         } else {
-          if (!hasExtId || packageType.isValidPacket(data, n)) {
-            callbackInfo.callback(new packageType(data));
+          if (!hasExtId || PackageType.isValidPacket(data, n)) {
+            callbackInfo.callback(new PackageType(data));
           } else {
             console.warn("ack", ack);
 
@@ -311,13 +323,13 @@ export class VexSerialConnection extends VexEventTarget {
       }
   }
 
-  async query1() {
-    let result = await this.writeDataAsync(new Query1H2DPacket(), 100);
+  async query1(): Promise<Query1ReplyD2HPacket | null> {
+    const result = await this.writeDataAsync(new Query1H2DPacket(), 100);
     return result instanceof Query1ReplyD2HPacket ? result : null;
   }
 
-  async getSystemVersion() {
-    let result = await this.writeDataAsync(new SystemVersionH2DPacket());
+  async getSystemVersion(): Promise<VexFirmwareVersion | null> {
+    const result = await this.writeDataAsync(new SystemVersionH2DPacket());
     return result instanceof SystemVersionReplyD2HPacket
       ? result.version
       : null;
@@ -331,31 +343,33 @@ export class V5SerialConnection extends VexSerialConnection {
     { usbVendorId: 10376, usbProductId: SerialDeviceType.V5_CONTROLLER },
   ];
 
-  async getDeviceStatus() {
-    let result = await this.writeDataAsync(new GetDeviceStatusH2DPacket());
+  async getDeviceStatus(): Promise<GetDeviceStatusReplyD2HPacket | null> {
+    const result = await this.writeDataAsync(new GetDeviceStatusH2DPacket());
     return result instanceof GetDeviceStatusReplyD2HPacket ? result : null;
   }
 
-  async getRadioStatus() {
-    let result = await this.writeDataAsync(new GetRadioStatusH2DPacket());
+  async getRadioStatus(): Promise<GetRadioStatusReplyD2HPacket | null> {
+    const result = await this.writeDataAsync(new GetRadioStatusH2DPacket());
     return result instanceof GetRadioStatusReplyD2HPacket ? result : null;
   }
 
-  async getSystemFlags() {
-    let result = await this.writeDataAsync(new GetSystemFlagsH2DPacket());
+  async getSystemFlags(): Promise<GetSystemFlagsReplyD2HPacket | null> {
+    const result = await this.writeDataAsync(new GetSystemFlagsH2DPacket());
     return result instanceof GetSystemFlagsReplyD2HPacket ? result : null;
   }
 
-  async getSystemStatus(timeout = 1000) {
-    let result = await this.writeDataAsync(
+  async getSystemStatus(
+    timeout = 1000,
+  ): Promise<GetSystemStatusReplyD2HPacket | null> {
+    const result = await this.writeDataAsync(
       new GetSystemStatusH2DPacket(),
       timeout,
     );
     return result instanceof GetSystemStatusReplyD2HPacket ? result : null;
   }
 
-  async getMatchStatus() {
-    let result = await this.writeDataAsync(new GetMatchStatusH2DPacket());
+  async getMatchStatus(): Promise<MatchStatusReplyD2HPacket | null> {
+    const result = await this.writeDataAsync(new GetMatchStatusH2DPacket());
     return result instanceof MatchStatusReplyD2HPacket ? result : null;
   }
 
@@ -364,27 +378,27 @@ export class V5SerialConnection extends VexSerialConnection {
     binFileBuf: Uint8Array,
     coldFileBuf: Uint8Array | undefined,
     progressCallback: (state: string, current: number, total: number) => void,
-  ) {
-    let iniFileBuffer = new TextEncoder().encode(iniConfig.createIni());
+  ): Promise<boolean | undefined> {
+    const iniFileBuffer = new TextEncoder().encode(iniConfig.createIni());
 
-    let basename = iniConfig.baseName;
+    const basename = iniConfig.baseName;
 
-    let iniRequest = {
+    const iniRequest = {
       filename: basename + ".ini",
       buf: iniFileBuffer,
       downloadTarget: FileDownloadTarget.FILE_TARGET_QSPI,
       vid: FileVendor.USER,
       autoRun: false,
     };
-    let r1 = await this.uploadFileToDevice(iniRequest, (current, total) =>
-      progressCallback("INI", current, total),
-    );
+    const r1 = await this.uploadFileToDevice(iniRequest, (current, total) => {
+      progressCallback("INI", current, total);
+    });
     if (!r1) return false;
 
     // let prjRequest = { filename: basename + '.prj', buf: prjfile, vid: FileVendor.USER, loadAddr: undefined, exttype: 0, linkedFile: undefined };
     // await this.uploadFileToDeviceAsync(prjRequest, onProgress);
 
-    let coldRequest =
+    const coldRequest =
       coldFileBuf !== undefined
         ? {
             filename: basename + "_lib.bin",
@@ -394,25 +408,28 @@ export class V5SerialConnection extends VexSerialConnection {
             autoRun: false,
           }
         : undefined;
-    if (coldRequest) {
-      let r2 = await this.uploadFileToDevice(coldRequest, (current, total) =>
-        progressCallback("COLD", current, total),
+    if (coldRequest != null) {
+      const r2 = await this.uploadFileToDevice(
+        coldRequest,
+        (current, total) => {
+          progressCallback("COLD", current, total);
+        },
       );
       if (!r2) return;
     }
 
-    let binRequest = {
+    const binRequest = {
       filename: basename + ".bin",
       buf: binFileBuf,
       downloadTarget: FileDownloadTarget.FILE_TARGET_QSPI,
       vid: FileVendor.USER,
-      loadAddress: coldFileBuf ? 0x07800000 : undefined,
+      loadAddress: coldFileBuf != null ? 0x07800000 : undefined,
       autoRun: iniConfig.autorun,
       linkedFile: coldRequest,
     };
-    let r3 = await this.uploadFileToDevice(binRequest, (current, total) =>
-      progressCallback("BIN", current, total),
-    );
+    const r3 = await this.uploadFileToDevice(binRequest, (current, total) => {
+      progressCallback("BIN", current, total);
+    });
 
     return r3;
   }
@@ -421,14 +438,14 @@ export class V5SerialConnection extends VexSerialConnection {
     request: IFileBasicInfo,
     downloadTarget = FileDownloadTarget.FILE_TARGET_QSPI,
     progressCallback?: (current: number, total: number) => void,
-  ) {
+  ): Promise<Uint8Array> {
     // TODO assert that the device is connected
 
-    let { filename, vendor, loadAddress, size } = request;
+    const { filename, vendor, loadAddress, size } = request;
 
     let nextAddress = loadAddress ?? USER_FLASH_USR_CODE_START;
 
-    let p1 = await this.writeDataAsync(
+    const p1 = await this.writeDataAsync(
       new InitFileTransferH2DPacket(
         FileInitAction.READ,
         downloadTarget,
@@ -444,11 +461,11 @@ export class V5SerialConnection extends VexSerialConnection {
     if (!(p1 instanceof InitFileTransferReplyD2HPacket))
       throw new Error("InitFileTransferH2DPacket failed");
 
-    let fileSize = size ?? p1.fileSize;
+    const fileSize = size ?? p1.fileSize;
 
     // console.log("size:", fileSize);
 
-    let bufferChunkSize =
+    const bufferChunkSize =
       p1.windowSize > 0 && p1.windowSize <= USER_PROG_CHUNK_SIZE
         ? p1.windowSize
         : USER_PROG_CHUNK_SIZE;
@@ -462,7 +479,7 @@ export class V5SerialConnection extends VexSerialConnection {
         lastBlock = true;
       }
 
-      let p2 = await this.writeDataAsync(
+      const p2 = await this.writeDataAsync(
         new ReadFileH2DPacket(nextAddress, bufferChunkSize),
         3000,
       );
@@ -472,14 +489,14 @@ export class V5SerialConnection extends VexSerialConnection {
 
       fileBuf.set(new Uint8Array(p2.buf), bufferOffset);
 
-      if (progressCallback) progressCallback(bufferOffset, fileSize);
+      if (progressCallback != null) progressCallback(bufferOffset, fileSize);
 
       // next chunk
       bufferOffset += bufferChunkSize;
       nextAddress += bufferChunkSize;
     }
 
-    let p3 = await this.writeDataAsync(
+    await this.writeDataAsync(
       new ExitFileTransferH2DPacket(FileExitAction.EXIT_HALT),
       30000,
     );
@@ -493,7 +510,7 @@ export class V5SerialConnection extends VexSerialConnection {
   async uploadFileToDevice(
     request: IFileWriteRequest,
     progressCallback?: (current: number, total: number) => void,
-  ) {
+  ): Promise<boolean> {
     let {
       filename,
       buf,
@@ -531,7 +548,7 @@ export class V5SerialConnection extends VexSerialConnection {
 
     console.log("init file transfer", filename);
 
-    let p1 = await this.writeDataAsync(
+    const p1 = await this.writeDataAsync(
       new InitFileTransferH2DPacket(
         FileInitAction.WRITE,
         downloadTarget,
@@ -549,7 +566,7 @@ export class V5SerialConnection extends VexSerialConnection {
     console.log(p1);
 
     if (linkedFile !== undefined) {
-      let p3 = await this.writeDataAsync(
+      const p3 = await this.writeDataAsync(
         new LinkFileH2DPacket(
           linkedFile.vendor ?? FileVendor.USER,
           linkedFile.filename,
@@ -562,7 +579,7 @@ export class V5SerialConnection extends VexSerialConnection {
         throw new Error("LinkFileH2DPacket failed");
     }
 
-    let bufferChunkSize =
+    const bufferChunkSize =
       p1.windowSize > 0 && p1.windowSize <= USER_PROG_CHUNK_SIZE
         ? p1.windowSize
         : USER_PROG_CHUNK_SIZE;
@@ -577,13 +594,13 @@ export class V5SerialConnection extends VexSerialConnection {
       } else {
         // last chunk
         // word align length
-        let length = ((buf.byteLength - bufferOffset + 3) / 4) >>> 0;
+        const length = ((buf.byteLength - bufferOffset + 3) / 4) >>> 0;
         tmpbuf = new Uint8Array(length * 4);
         tmpbuf.set(buf.subarray(bufferOffset, buf.byteLength));
         lastBlock = true;
       }
 
-      let p2 = await this.writeDataAsync(
+      const p2 = await this.writeDataAsync(
         new WriteFileH2DPacket(nextAddress, tmpbuf),
         3000,
       );
@@ -591,14 +608,15 @@ export class V5SerialConnection extends VexSerialConnection {
       if (!(p2 instanceof WriteFileReplyD2HPacket))
         throw new Error("WriteFileReplyD2HPacket failed");
 
-      if (progressCallback) progressCallback(bufferOffset, buf.byteLength);
+      if (progressCallback != null)
+        progressCallback(bufferOffset, buf.byteLength);
 
       // next chunk
       bufferOffset += bufferChunkSize;
       nextAddress += bufferChunkSize;
     }
 
-    let p4 = await this.writeDataAsync(
+    const p4 = await this.writeDataAsync(
       new ExitFileTransferH2DPacket(
         autoRun ? FileExitAction.EXIT_RUN : FileExitAction.EXIT_HALT,
       ),
@@ -608,36 +626,42 @@ export class V5SerialConnection extends VexSerialConnection {
     return p4 instanceof ExitFileTransferReplyD2HPacket;
   }
 
-  async setMatchMode(mode: MatchMode) {
-    let result = await this.writeDataAsync(
+  async setMatchMode(mode: MatchMode): Promise<MatchModeReplyD2HPacket | null> {
+    const result = await this.writeDataAsync(
       new UpdateMatchModeH2DPacket(mode, 0),
     );
     return result instanceof MatchModeReplyD2HPacket ? result : null;
   }
 
-  async loadProgram(value: SlotNumber | string) {
-    let result = await this.writeDataAsync(
+  async loadProgram(
+    value: SlotNumber | string,
+  ): Promise<LoadFileActionReplyD2HPacket | null> {
+    const result = await this.writeDataAsync(
       new LoadFileActionH2DPacket(FileVendor.USER, FileLoadAction.RUN, value),
     );
     return result instanceof LoadFileActionReplyD2HPacket ? result : null;
   }
 
-  async stopProgram() {
-    let result = await this.writeDataAsync(
+  async stopProgram(): Promise<LoadFileActionReplyD2HPacket | null> {
+    const result = await this.writeDataAsync(
       new LoadFileActionH2DPacket(FileVendor.USER, FileLoadAction.STOP, ""),
     );
     return result instanceof LoadFileActionReplyD2HPacket ? result : null;
   }
 
-  async mockTouch(x: number, y: number, press: boolean) {
-    let result = await this.writeDataAsync(
+  async mockTouch(
+    x: number,
+    y: number,
+    press: boolean,
+  ): Promise<SendDashTouchReplyD2HPacket | null> {
+    const result = await this.writeDataAsync(
       new SendDashTouchH2DPacket(x, y, press),
     );
     return result instanceof SendDashTouchReplyD2HPacket ? result : null;
   }
 }
 
-function logData(data: Uint8Array, limitedSize: number) {
+function logData(data: Uint8Array, limitedSize: number): void {
   if (data === undefined) return;
 
   limitedSize || (limitedSize = data.length);
@@ -655,12 +679,12 @@ function binaryArrayJoin(
   left: Uint8Array | ArrayBuffer | null,
   right: Uint8Array | ArrayBuffer | null,
 ): Uint8Array {
-  const leftSize = left ? left.byteLength : 0;
-  const rightSize = right ? right.byteLength : 0;
+  const leftSize = left != null ? left.byteLength : 0;
+  const rightSize = right != null ? right.byteLength : 0;
   const all = new Uint8Array(leftSize + rightSize);
-  return 0 === all.length
+  return all.length === 0
     ? new Uint8Array()
-    : (left && all.set(new Uint8Array(left), 0),
-      right && all.set(new Uint8Array(right), leftSize),
+    : (left != null && all.set(new Uint8Array(left), 0),
+      right != null && all.set(new Uint8Array(right), leftSize),
       all);
 }
