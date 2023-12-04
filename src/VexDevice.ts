@@ -94,7 +94,7 @@ function shallowEqual(object1: object, object2: object): boolean {
     return false;
   }
   for (const key of keys1) {
-    if (object1[key] !== object2[key]) {
+    if (object1[key as keyof typeof object1] !== object2[key as keyof typeof object2]) {
       return false;
     }
   }
