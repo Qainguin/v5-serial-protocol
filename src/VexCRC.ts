@@ -68,7 +68,7 @@ export class CrcGenerator {
     for (i = 0; i < 256; i++) {
       crcAccumulator = i << 24;
       for (j = 0; j < 8; j++) {
-        if (crcAccumulator & 0x80000000)
+        if ((crcAccumulator & 0x80000000) !== 0)
           crcAccumulator =
             (crcAccumulator << 1) ^ CrcGenerator.POLYNOMIAL_CRC32;
         else crcAccumulator = crcAccumulator << 1;

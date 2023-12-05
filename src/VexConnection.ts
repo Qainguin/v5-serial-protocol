@@ -94,8 +94,8 @@ export class VexSerialConnection extends VexEventTarget {
     try {
       await this.reader?.cancel();
       try {
-        while (true && this.reader) {
-          const { value, done } = await this.reader.read();
+        while (this.reader != null) {
+          const { done } = await this.reader.read();
           if (done) break;
         }
       } catch (e) {}
@@ -176,10 +176,10 @@ export class VexSerialConnection extends VexEventTarget {
     resolve: (data: HostBoundPacket | ArrayBuffer | AckType) => void,
     timeout: number = 1000,
   ): void {
-    this.writeDataAsync(rawData, timeout).then(resolve);
+    void this.writeDataSync(rawData, timeout).then(resolve);
   }
 
-  async writeDataAsync(
+  async writeDataSync(
     rawData: DeviceBoundPacket | Uint8Array,
     timeout: number = 1000,
   ): Promise<HostBoundPacket | ArrayBuffer | AckType> {
@@ -259,7 +259,7 @@ export class VexSerialConnection extends VexEventTarget {
         sliceIdx = totalSize + 1;
 
         const cmdId = cache[2];
-        const hasExtId = cmdId == 88 || cmdId == 86;
+        const hasExtId = cmdId === 88 || cmdId === 86;
         const cmdExId = hasExtId ? cache[n] : undefined;
 
         const ack = cache[n + 1];
@@ -324,12 +324,12 @@ export class VexSerialConnection extends VexEventTarget {
   }
 
   async query1(): Promise<Query1ReplyD2HPacket | null> {
-    const result = await this.writeDataAsync(new Query1H2DPacket(), 100);
+    const result = await this.writeDataSync(new Query1H2DPacket(), 100);
     return result instanceof Query1ReplyD2HPacket ? result : null;
   }
 
   async getSystemVersion(): Promise<VexFirmwareVersion | null> {
-    const result = await this.writeDataAsync(new SystemVersionH2DPacket());
+    const result = await this.writeDataSync(new SystemVersionH2DPacket());
     return result instanceof SystemVersionReplyD2HPacket
       ? result.version
       : null;
@@ -344,24 +344,24 @@ export class V5SerialConnection extends VexSerialConnection {
   ];
 
   async getDeviceStatus(): Promise<GetDeviceStatusReplyD2HPacket | null> {
-    const result = await this.writeDataAsync(new GetDeviceStatusH2DPacket());
+    const result = await this.writeDataSync(new GetDeviceStatusH2DPacket());
     return result instanceof GetDeviceStatusReplyD2HPacket ? result : null;
   }
 
   async getRadioStatus(): Promise<GetRadioStatusReplyD2HPacket | null> {
-    const result = await this.writeDataAsync(new GetRadioStatusH2DPacket());
+    const result = await this.writeDataSync(new GetRadioStatusH2DPacket());
     return result instanceof GetRadioStatusReplyD2HPacket ? result : null;
   }
 
   async getSystemFlags(): Promise<GetSystemFlagsReplyD2HPacket | null> {
-    const result = await this.writeDataAsync(new GetSystemFlagsH2DPacket());
+    const result = await this.writeDataSync(new GetSystemFlagsH2DPacket());
     return result instanceof GetSystemFlagsReplyD2HPacket ? result : null;
   }
 
   async getSystemStatus(
     timeout = 1000,
   ): Promise<GetSystemStatusReplyD2HPacket | null> {
-    const result = await this.writeDataAsync(
+    const result = await this.writeDataSync(
       new GetSystemStatusH2DPacket(),
       timeout,
     );
@@ -369,7 +369,7 @@ export class V5SerialConnection extends VexSerialConnection {
   }
 
   async getMatchStatus(): Promise<MatchStatusReplyD2HPacket | null> {
-    const result = await this.writeDataAsync(new GetMatchStatusH2DPacket());
+    const result = await this.writeDataSync(new GetMatchStatusH2DPacket());
     return result instanceof MatchStatusReplyD2HPacket ? result : null;
   }
 
@@ -445,7 +445,7 @@ export class V5SerialConnection extends VexSerialConnection {
 
     let nextAddress = loadAddress ?? USER_FLASH_USR_CODE_START;
 
-    const p1 = await this.writeDataAsync(
+    const p1 = await this.writeDataSync(
       new InitFileTransferH2DPacket(
         FileInitAction.READ,
         downloadTarget,
@@ -479,7 +479,7 @@ export class V5SerialConnection extends VexSerialConnection {
         lastBlock = true;
       }
 
-      const p2 = await this.writeDataAsync(
+      const p2 = await this.writeDataSync(
         new ReadFileH2DPacket(nextAddress, bufferChunkSize),
         3000,
       );
@@ -496,7 +496,7 @@ export class V5SerialConnection extends VexSerialConnection {
       nextAddress += bufferChunkSize;
     }
 
-    await this.writeDataAsync(
+    await this.writeDataSync(
       new ExitFileTransferH2DPacket(FileExitAction.EXIT_HALT),
       30000,
     );
@@ -548,7 +548,7 @@ export class V5SerialConnection extends VexSerialConnection {
 
     console.log("init file transfer", filename);
 
-    const p1 = await this.writeDataAsync(
+    const p1 = await this.writeDataSync(
       new InitFileTransferH2DPacket(
         FileInitAction.WRITE,
         downloadTarget,
@@ -566,7 +566,7 @@ export class V5SerialConnection extends VexSerialConnection {
     console.log(p1);
 
     if (linkedFile !== undefined) {
-      const p3 = await this.writeDataAsync(
+      const p3 = await this.writeDataSync(
         new LinkFileH2DPacket(
           linkedFile.vendor ?? FileVendor.USER,
           linkedFile.filename,
@@ -600,7 +600,7 @@ export class V5SerialConnection extends VexSerialConnection {
         lastBlock = true;
       }
 
-      const p2 = await this.writeDataAsync(
+      const p2 = await this.writeDataSync(
         new WriteFileH2DPacket(nextAddress, tmpbuf),
         3000,
       );
@@ -616,7 +616,7 @@ export class V5SerialConnection extends VexSerialConnection {
       nextAddress += bufferChunkSize;
     }
 
-    const p4 = await this.writeDataAsync(
+    const p4 = await this.writeDataSync(
       new ExitFileTransferH2DPacket(
         autoRun ? FileExitAction.EXIT_RUN : FileExitAction.EXIT_HALT,
       ),
@@ -627,7 +627,7 @@ export class V5SerialConnection extends VexSerialConnection {
   }
 
   async setMatchMode(mode: MatchMode): Promise<MatchModeReplyD2HPacket | null> {
-    const result = await this.writeDataAsync(
+    const result = await this.writeDataSync(
       new UpdateMatchModeH2DPacket(mode, 0),
     );
     return result instanceof MatchModeReplyD2HPacket ? result : null;
@@ -636,14 +636,14 @@ export class V5SerialConnection extends VexSerialConnection {
   async loadProgram(
     value: SlotNumber | string,
   ): Promise<LoadFileActionReplyD2HPacket | null> {
-    const result = await this.writeDataAsync(
+    const result = await this.writeDataSync(
       new LoadFileActionH2DPacket(FileVendor.USER, FileLoadAction.RUN, value),
     );
     return result instanceof LoadFileActionReplyD2HPacket ? result : null;
   }
 
   async stopProgram(): Promise<LoadFileActionReplyD2HPacket | null> {
-    const result = await this.writeDataAsync(
+    const result = await this.writeDataSync(
       new LoadFileActionH2DPacket(FileVendor.USER, FileLoadAction.STOP, ""),
     );
     return result instanceof LoadFileActionReplyD2HPacket ? result : null;
@@ -654,7 +654,7 @@ export class V5SerialConnection extends VexSerialConnection {
     y: number,
     press: boolean,
   ): Promise<SendDashTouchReplyD2HPacket | null> {
-    const result = await this.writeDataAsync(
+    const result = await this.writeDataSync(
       new SendDashTouchH2DPacket(x, y, press),
     );
     return result instanceof SendDashTouchReplyD2HPacket ? result : null;
@@ -664,7 +664,7 @@ export class V5SerialConnection extends VexSerialConnection {
 function logData(data: Uint8Array, limitedSize: number): void {
   if (data === undefined) return;
 
-  limitedSize || (limitedSize = data.length);
+  limitedSize ||= data.length;
   let a = "";
   for (let n = 0; n < data.length && n < limitedSize; n++)
     a += ("00" + data[n].toString(16)).substr(-2, 2) + " ";

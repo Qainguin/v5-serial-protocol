@@ -168,7 +168,7 @@ export class PacketEncoder {
   getPayloadSize(data: Uint8Array): number {
     let t = 0;
     let a = data[3];
-    if (128 & a) {
+    if ((128 & a) !== 0) {
       t = 127 & a;
       a = data[4];
     }
@@ -190,7 +190,7 @@ export abstract class Packet {
 export class DeviceBoundPacket extends Packet {
   constructor(payload?: Uint8Array) {
     super(new Uint8Array());
-
+    // eslint-disable-next-line no-proto, @typescript-eslint/no-explicit-any
     const me = (this as any).__proto__.constructor;
 
     if (me.COMMAND_EXTENDED_ID === undefined) {
@@ -1107,12 +1107,16 @@ export class GetSystemFlagsReplyD2HPacket extends HostBoundPacket {
         this.partnerControllerBatteryPercent = 8 * ((byte2 >> 4) & 0x0f);
       this.currentProgram = dataView.nextUint8();
 
-      if (this.battery && this.battery > 100) this.battery = 100;
-      if (this.controllerBatteryPercent && this.controllerBatteryPercent > 100)
-        this.controllerBatteryPercent = 100;
-      if (this.radioQuality && this.radioQuality > 100) this.radioQuality = 100;
+      if (this.battery != null && this.battery > 100) this.battery = 100;
       if (
-        this.partnerControllerBatteryPercent &&
+        this.controllerBatteryPercent != null &&
+        this.controllerBatteryPercent > 100
+      )
+        this.controllerBatteryPercent = 100;
+      if (this.radioQuality != null && this.radioQuality > 100)
+        this.radioQuality = 100;
+      if (
+        this.partnerControllerBatteryPercent != null &&
         this.partnerControllerBatteryPercent > 100
       )
         this.partnerControllerBatteryPercent = 100;
