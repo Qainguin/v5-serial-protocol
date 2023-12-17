@@ -160,22 +160,14 @@ export abstract class VexSerialDevice extends VexEventTarget {
   abstract disconnect(): void;
 }
 
-class V5SerialDeviceProxyHandler implements ProxyHandler<object> {
-  device?: V5SerialDevice;
-  parent?: V5SerialDeviceProxyHandler;
-  rootkey?: string;
-
+class V5SerialDeviceProxyHandler implements ProxyHandler<V5SerialDeviceState> {
   constructor(
-    device?: V5SerialDevice,
-    parent?: V5SerialDeviceProxyHandler,
-    rootkey?: string,
-  ) {
-    this.device = device;
-    this.parent = parent;
-    this.rootkey = rootkey;
-  }
+    protected device?: V5SerialDevice,
+    protected parent?: V5SerialDeviceProxyHandler,
+    protected rootkey?: keyof V5SerialDeviceState,
+  ) {}
 
-  get(target: any, key: any): any {
+  get(target: V5SerialDeviceState, key: keyof V5SerialDeviceState): unknown {
     if (
       typeof target[key] === "object" &&
       target[key] !== null &&
@@ -190,7 +182,7 @@ class V5SerialDeviceProxyHandler implements ProxyHandler<object> {
     }
   }
 
-  set(target: any, key: any, value: any): boolean {
+  set<K extends keyof V5SerialDeviceState>(target: V5SerialDeviceState, key: K, value: V5SerialDeviceState[K] ): boolean {
     const oldValue = target[key];
     if (oldValue === value) {
       return true;
@@ -202,7 +194,6 @@ class V5SerialDeviceProxyHandler implements ProxyHandler<object> {
     ) {
       if (shallowEqual(oldValue, value)) return true;
     }
-
     target[key] = value;
 
     this.parent?.childSet(this.rootkey, key, value);
@@ -210,7 +201,7 @@ class V5SerialDeviceProxyHandler implements ProxyHandler<object> {
     return true;
   }
 
-  childSet(rootkey: string | undefined, subkey: string, value: any) {
+  childSet(rootkey: string | undefined, subkey: string, value: any): void {
     if (this.parent)
       this.parent.childSet(this.rootkey, rootkey + "." + subkey, value);
     else console.log("changed", rootkey + "." + subkey, value); // TODO
@@ -846,17 +837,17 @@ export class V5SmartDevice {
     return this.state.devices[this.deviceIndex] !== undefined;
   }
 
-  get port() : number {
+  get port(): number {
     return this.deviceIndex;
   }
 
-  get type() : SmartDeviceType{
+  get type(): SmartDeviceType {
     return this.isAvailable
       ? this.state.devices[this.deviceIndex].type
       : SmartDeviceType.EMPTY;
   }
 
-  get version() : number {
+  get version(): number {
     return this.isAvailable ? this.state.devices[this.deviceIndex].version : 0;
   }
 }
@@ -868,27 +859,27 @@ export class V5Radio {
     this.state = state;
   }
 
-  get channel() : number {
+  get channel(): number {
     return this.state.radio.channel;
   }
 
-  get isAvailable() : boolean {
+  get isAvailable(): boolean {
     return this.state.radio.isAvailable;
   }
 
-  get isConnected() : boolean {
+  get isConnected(): boolean {
     return this.state.radio.isConnected;
   }
 
-  get isVexNet() : boolean {
+  get isVexNet(): boolean {
     return this.state.radio.isVexNet;
   }
 
-  get isRadioData() : boolean {
+  get isRadioData(): boolean {
     return this.state.radio.isRadioData;
   }
 
-  get latency() : number {
+  get latency(): number {
     return this.state.radio.latency;
   }
 
@@ -926,7 +917,7 @@ export class V5SerialDevice extends VexSerialDevice {
           this.pauseRefreshOnFileTransfer &&
           !this.state._isFileTransferring
         ) {
-          this.refresh();
+          void this.refresh();
         }
       }
     }, 200);
@@ -940,14 +931,15 @@ export class V5SerialDevice extends VexSerialDevice {
     return new V5Brain(this.state);
   }
 
-  get controllers() : [V5Controller, V5Controller]{
+  get controllers(): [V5Controller, V5Controller] {
     return [new V5Controller(this.state, 0), new V5Controller(this.state, 1)];
   }
 
   get devices(): V5SmartDevice[] {
     const rtn = [];
     for (let i = 1; i <= this.state.devices.length; i++) {
-      if (this.state.devices[i] != null) rtn.push(new V5SmartDevice(this.state, i));
+      if (this.state.devices[i] != null)
+        rtn.push(new V5SmartDevice(this.state, i));
     }
     return rtn;
   }
@@ -1029,7 +1021,7 @@ export class V5SerialDevice extends VexSerialDevice {
       do {
         successB4Timeout = await sleepUntil(
           () => !this._isReconnecting,
-          timeout === 0? 1000: timeout,
+          timeout === 0 ? 1000 : timeout,
         );
       } while (timeout === 0 && !successB4Timeout);
 
@@ -1078,10 +1070,13 @@ export class V5SerialDevice extends VexSerialDevice {
       if (this.isConnected) break;
 
       // try again every second or when the number of ports is different
-      const getPortCount = async () =>
+      const getPortCount = async (): Promise<number> =>
         (await this.defaultSerial.getPorts()).length;
       const portsCount = await getPortCount();
-      await sleepUntil(async () => (await getPortCount()) !== portsCount, 1000);
+      await sleepUntilAsync(
+        async () => (await getPortCount()) !== portsCount,
+        1000,
+      );
     }
 
     this._isReconnecting = false;
@@ -1093,19 +1088,19 @@ export class V5SerialDevice extends VexSerialDevice {
     return true;
   }
 
-  private async doAfterConnect() {
-    if (!this.connection) return;
+  private async doAfterConnect(): Promise<void> {
+    if (this.connection == null) return;
 
     console.log("doAfterConnect");
 
     this.connection.on("disconnected", (_data) => {
-      if (this.autoReconnect) this.reconnect();
+      if (this.autoReconnect) void this.reconnect();
     });
 
     await this.refresh();
   }
 
-  async refresh() {
+  async refresh(): Promise<boolean> {
     const ssPacket = await this.connection?.getSystemStatus();
     if (ssPacket == null) {
       this.state.brain.isAvailable = false;
@@ -1119,9 +1114,9 @@ export class V5SerialDevice extends VexSerialDevice {
     const flags2 = ssPacket.sysflags[2];
     this.state.controllers[0].isCharging = (flags2 & 0b10000000) !== 0;
     this.state.matchMode =
-      ((flags2 & 0b00100000) !== 0)
+      (flags2 & 0b00100000) !== 0
         ? "disabled"
-        : ((flags2 & 0b01000000) !== 0)
+        : (flags2 & 0b01000000) !== 0
           ? "autonomous"
           : "driver";
     this.state.isFieldControllerConnected = (flags2 & 0b00010000) !== 0;
