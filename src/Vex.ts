@@ -235,6 +235,8 @@ export enum SerialDeviceType {
 
   CORTEX_PROGCBL = 10,
   CORTEX_BRAIN = 11,
+  // Jerry says this was copied from the official source code ¯\_(ツ)_/¯
+  // eslint-disable-next-line @typescript-eslint/no-duplicate-enum-values
   CORTEX_JOYSTK = 12,
 
   VEXNET_KEY_20 = 7,

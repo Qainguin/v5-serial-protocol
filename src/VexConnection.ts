@@ -588,7 +588,7 @@ export class V5SerialConnection extends VexSerialConnection {
     let lastBlock = false;
 
     while (!lastBlock) {
-      var tmpbuf;
+      let tmpbuf;
       if (buf.byteLength - bufferOffset > bufferChunkSize) {
         tmpbuf = buf.subarray(bufferOffset, bufferOffset + bufferChunkSize);
       } else {

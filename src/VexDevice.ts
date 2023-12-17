@@ -75,7 +75,7 @@ export async function sleepUntilAsync(
     const stopper = setTimeout(() => {
       stopped = true;
       resolve(false);
-    });
+    }, timeout);
     const checker = (val: boolean): void => {
       if (stopped) return;
 
@@ -182,7 +182,11 @@ class V5SerialDeviceProxyHandler implements ProxyHandler<V5SerialDeviceState> {
     }
   }
 
-  set<K extends keyof V5SerialDeviceState>(target: V5SerialDeviceState, key: K, value: V5SerialDeviceState[K] ): boolean {
+  set<K extends keyof V5SerialDeviceState>(
+    target: V5SerialDeviceState,
+    key: K,
+    value: V5SerialDeviceState[K],
+  ): boolean {
     const oldValue = target[key];
     if (oldValue === value) {
       return true;
@@ -246,7 +250,7 @@ class V5SerialDeviceState {
     },
   ];
 
-  devices: ISmartDeviceInfo[] = [];
+  devices: Array<ISmartDeviceInfo | undefined> = [];
   isFieldControllerConnected = false;
   matchMode: MatchMode = "disabled";
   radio = {
@@ -833,8 +837,12 @@ export class V5SmartDevice {
     this.deviceIndex = index;
   }
 
+  protected getDeviceInfo(): ISmartDeviceInfo | undefined {
+    return this.state.devices[this.deviceIndex];
+  }
+
   get isAvailable(): boolean {
-    return this.state.devices[this.deviceIndex] !== undefined;
+    return this.getDeviceInfo() !== undefined;
   }
 
   get port(): number {
@@ -842,13 +850,11 @@ export class V5SmartDevice {
   }
 
   get type(): SmartDeviceType {
-    return this.isAvailable
-      ? this.state.devices[this.deviceIndex].type
-      : SmartDeviceType.EMPTY;
+    return this.getDeviceInfo()?.type ?? SmartDeviceType.EMPTY;
   }
 
   get version(): number {
-    return this.isAvailable ? this.state.devices[this.deviceIndex].version : 0;
+    return this.getDeviceInfo()?.version ?? 0;
   }
 }
 
@@ -1010,6 +1016,10 @@ export class V5SerialDevice extends VexSerialDevice {
     this.connection = undefined;
   }
 
+  /**
+   * @param timeout defaults to 0. If timeout is 0, then it will attempt to reconnect forever
+   * @returns
+   */
   async reconnect(timeout: number = 0): Promise<boolean> {
     if (this.isConnected) return true;
     if (timeout < 0) return false;
@@ -1017,21 +1027,23 @@ export class V5SerialDevice extends VexSerialDevice {
     const endTime = new Date().getTime() + timeout;
 
     if (this._isReconnecting) {
-      let successB4Timeout;
+      let successBeforeTimeout;
       do {
-        successB4Timeout = await sleepUntil(
+        successBeforeTimeout = await sleepUntil(
           () => !this._isReconnecting,
           timeout === 0 ? 1000 : timeout,
         );
-      } while (timeout === 0 && !successB4Timeout);
+        // eslint-disable-next-line no-unmodified-loop-condition
+      } while (timeout === 0 && !successBeforeTimeout);
 
       if (this.isConnected) return true;
-      if (!successB4Timeout) return false;
+      if (!successBeforeTimeout) return false;
     }
 
     this._isReconnecting = true;
 
-    while (timeout === 0 || new Date().getTime() > endTime) {
+    // eslint-disable-next-line no-unmodified-loop-condition
+    while (timeout === 0 || new Date().getTime() < endTime) {
       // console.log("try to reconnect");
 
       let tryIdx = 0;
@@ -1165,7 +1177,7 @@ export class V5SerialDevice extends VexSerialDevice {
 
     let missingPorts = this.state.devices
       .map((d) => d?.port)
-      .filter((p) => p !== undefined);
+      .filter((p): p is number => p !== undefined);
 
     for (let i = 0; i < dsPacket.devices.length; i++) {
       const device = dsPacket.devices[i];
@@ -1175,7 +1187,9 @@ export class V5SerialDevice extends VexSerialDevice {
       missingPorts = missingPorts.filter((p) => p !== device.port);
     }
 
-    missingPorts.forEach((port) => delete this.state.devices[port]);
+    missingPorts.forEach((port) => {
+      this.state.devices[port] = undefined;
+    });
 
     return true;
   }
