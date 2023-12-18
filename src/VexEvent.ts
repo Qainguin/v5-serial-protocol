@@ -55,7 +55,10 @@ export class VexEventTarget {
     this.emitter.on(String(eventName), listener);
   }
 
-  remove(eventName: string | symbol, listener: (...args: unknown[]) => void): void {
+  remove(
+    eventName: string | symbol,
+    listener: (...args: unknown[]) => void,
+  ): void {
     this.emitter.remove(String(eventName), listener);
   }
 

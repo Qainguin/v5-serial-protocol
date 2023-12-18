@@ -136,8 +136,10 @@ export class ProgramIniConfig {
       )
       .addComment("")
       .addSection(
-        new IniSectionBuilder("config", this.config, (k) =>
-          "port_" + this.dec2(k),
+        new IniSectionBuilder(
+          "config",
+          this.config,
+          (k) => "port_" + this.dec2(k),
         ).addAllObjProps(),
       )
       .addComment("")

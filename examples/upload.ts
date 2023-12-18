@@ -1,5 +1,9 @@
 import { serial } from "node-web-serial-ponyfill";
-import { ProgramIniConfig, V5SerialDevice, type ZerobaseSlotNumber } from "../src";
+import {
+  ProgramIniConfig,
+  V5SerialDevice,
+  type ZerobaseSlotNumber,
+} from "../src";
 
 import fs from "fs";
 
