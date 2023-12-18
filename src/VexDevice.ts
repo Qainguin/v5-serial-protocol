@@ -119,23 +119,6 @@ export async function sleep(ms: number): Promise<unknown> {
   return await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function shallowEqual(object1: object, object2: object): boolean {
-  const keys1 = Object.keys(object1);
-  const keys2 = Object.keys(object2);
-  if (keys1.length !== keys2.length) {
-    return false;
-  }
-  for (const key of keys1) {
-    if (
-      object1[key as keyof typeof object1] !==
-      object2[key as keyof typeof object2]
-    ) {
-      return false;
-    }
-  }
-  return true;
-}
-
 export abstract class VexSerialDevice extends VexEventTarget {
   connection: V5SerialConnection | undefined;
   defaultSerial: Serial;
@@ -158,58 +141,6 @@ export abstract class VexSerialDevice extends VexEventTarget {
   abstract connect(conn?: V5SerialConnection): Promise<boolean>;
 
   abstract disconnect(): void;
-}
-
-class V5SerialDeviceProxyHandler implements ProxyHandler<V5SerialDeviceState> {
-  constructor(
-    protected device?: V5SerialDevice,
-    protected parent?: V5SerialDeviceProxyHandler,
-    protected rootkey?: keyof V5SerialDeviceState,
-  ) {}
-
-  get(target: V5SerialDeviceState, key: keyof V5SerialDeviceState): unknown {
-    if (
-      typeof target[key] === "object" &&
-      target[key] !== null &&
-      (typeof key !== "string" ? true : !key.startsWith("_"))
-    ) {
-      return new Proxy(
-        target[key],
-        new V5SerialDeviceProxyHandler(this.device, this, key),
-      );
-    } else {
-      return target[key];
-    }
-  }
-
-  set<K extends keyof V5SerialDeviceState>(
-    target: V5SerialDeviceState,
-    key: K,
-    value: V5SerialDeviceState[K],
-  ): boolean {
-    const oldValue = target[key];
-    if (oldValue === value) {
-      return true;
-    } else if (
-      typeof oldValue === "object" &&
-      typeof value === "object" &&
-      oldValue !== null &&
-      value !== null
-    ) {
-      if (shallowEqual(oldValue, value)) return true;
-    }
-    target[key] = value;
-
-    this.parent?.childSet(this.rootkey, key, value);
-
-    return true;
-  }
-
-  childSet(rootkey: string | undefined, subkey: string, value: any): void {
-    if (this.parent)
-      this.parent.childSet(this.rootkey, rootkey + "." + subkey, value);
-    else console.log("changed", rootkey + "." + subkey, value); // TODO
-  }
 }
 
 class V5SerialDeviceState {
@@ -903,11 +834,7 @@ export class V5SerialDevice extends VexSerialDevice {
   pauseRefreshOnFileTransfer = true;
 
   protected _isReconnecting = false;
-  protected proxy = new V5SerialDeviceProxyHandler(this);
-  state = new Proxy<V5SerialDeviceState>(
-    new V5SerialDeviceState(this),
-    this.proxy,
-  );
+  state: V5SerialDeviceState = new V5SerialDeviceState(this);
 
   constructor(defaultSerial: Serial) {
     super(defaultSerial);
@@ -1095,7 +1022,7 @@ export class V5SerialDevice extends VexSerialDevice {
 
     if (!this.isConnected) return false;
 
-    this.doAfterConnect();
+    void this.doAfterConnect();
 
     return true;
   }
