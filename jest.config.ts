@@ -4,13 +4,13 @@
  */
 
 export default {
-  preset: 'ts-jest',
+  preset: "ts-jest",
 
-  testEnvironment: 'node',
+  testEnvironment: "node",
 
   transform: {
-    '^.+\\.jsx?$': 'babel-jest',
-    '^.+\\.ts?$': 'ts-jest',
+    "^.+\\.jsx?$": "babel-jest",
+    "^.+\\.ts?$": "ts-jest",
   },
 
   // Indicates whether the coverage information should be collected while executing the test
@@ -20,5 +20,5 @@ export default {
   coverageDirectory: "coverage",
 
   // Indicates which provider should be used to instrument code for coverage
-  coverageProvider: "v8"
+  coverageProvider: "v8",
 };

@@ -1,5 +1,5 @@
 {
-  "name": "v5-serial-protocol",
+  "name": "@lemlib/v5-serial-protocol",
   "version": "0.5.0",
   "description": "TODO",
   "main": "dist/v5-serial-protocol.cjs.js",
@@ -10,7 +10,15 @@
     "build": "tsc && NODE_ENV=production rollup -c",
     "dev": "rollup -c -w",
     "test": "jest",
-    "pretest": "npm run build"
+    "pretest": "npm run build",
+    "check-lint": "eslint \"src/**.ts\" --cache --cache-location node_modules/.cache/eslint/.eslintcache",
+    "check-format": "prettier . -c --cache",
+    "pre-commit": "npm run check-lint && npm run check-format",
+    "lint": "npm run check-lint -- --fix",
+    "format": "prettier . --write --cache",
+    "clean": "npm run lint && npm run format",
+    "semantic-release": "semantic-release",
+    "prepare": "husky install"
   },
   "repository": {
     "type": "git",
@@ -51,10 +59,32 @@
     "ts-jest": "^28.0.4",
     "ts-node": "^10.8.1",
     "tslib": "^2.4.0",
-    "typescript": "^4.7.3"
+    "typescript": "^4.7.3",
+    "@commitlint/cli": "^18.4.3",
+    "@commitlint/config-conventional": "^18.4.3",
+    "@typescript-eslint/eslint-plugin": "^6.12.0",
+    "@typescript-eslint/parser": "^6.12.0",
+    "eslint": "^8.54.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-config-standard-with-typescript": "^40.0.0",
+    "prettier": "^3.1.0",
+    "semantic-release": "^22.0.8",
+    "husky": "^8.0.0"
   },
   "dependencies": {
     "@types/dom-serial": "^1.0.2",
     "unzipit": "^1.4.0"
+  },
+  "release": {
+    "branches": [
+      "stable",
+      {
+        "name": "pre-release",
+        "prerelease": true
+      }
+    ]
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
   }
 }

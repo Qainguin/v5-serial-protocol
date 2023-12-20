@@ -1,50 +1,68 @@
-
 export class VexEventEmitter {
-    handlers: { [key: string | symbol]: ((...args: any[]) => void)[] };
+  handlerMap: Map<string | symbol, Array<(...args: unknown[]) => void>>;
 
-    constructor() {
-        this.handlers = {};
-    }
-    on(eventName: string | symbol, listener: (...args: any[]) => void) {
-        this.handlers[eventName] = this.handlers[eventName] || [];
-        this.handlers[eventName].push(listener);
-    }
-    remove(eventName: string | symbol, listener: (...args: any[]) => void) {
-        this.handlers[eventName] = this.handlers[eventName] || [];
+  constructor() {
+    this.handlerMap = new Map<string, Array<(...args: unknown[]) => void>>();
+  }
 
-        let index = this.handlers[eventName].indexOf(listener);
-        if (index > -1) {
-            this.handlers[eventName].splice(index, 1);
-        }
+  on(eventName: string | symbol, listener: (...args: unknown[]) => void): void {
+    let listeners = this.handlerMap.get(eventName);
+    listeners ??= [];
+
+    listeners.push(listener);
+
+    this.handlerMap.set(eventName, listeners);
+  }
+
+  remove(
+    eventName: string | symbol,
+    listener: (...args: unknown[]) => void,
+  ): void {
+    let listeners = this.handlerMap.get(eventName);
+    listeners ??= [];
+
+    const index = listeners.indexOf(listener);
+    if (index > -1) {
+      listeners.splice(index, 1);
     }
-    emit(eventName: string | symbol, data: any) {
-        (this.handlers[eventName] || []).forEach((callback => {
-            callback(data);
-        }))
-    }
-    clearListeners() {
-        Object.keys(this.handlers).forEach((e => {
-            delete this.handlers[e];
-        }))
-    }
+
+    this.handlerMap.set(eventName, listeners);
+  }
+
+  emit(eventName: string | symbol, data: unknown): void {
+    (this.handlerMap.get(eventName) ?? []).forEach((callback) => {
+      callback(data);
+    });
+  }
+
+  clearListeners(): void {
+    this.handlerMap.clear();
+  }
 }
 
 export class VexEventTarget {
-    emitter: VexEventEmitter;
+  emitter: VexEventEmitter;
 
-    constructor() {
-        this.emitter = new VexEventEmitter();
-    }
-    emit(eventName: string | symbol, data: any) {
-        this.emitter.emit(String(eventName), data);
-    }
-    on(eventName: string | symbol, listener: (...args: any[]) => void) {
-        this.emitter.on(String(eventName), listener);
-    }
-    remove(eventName: string | symbol, listener: (...args: any[]) => void) {
-        this.emitter.remove(String(eventName), listener);
-    }
-    clearListeners() {
-        this.emitter.clearListeners();
-    }
+  constructor() {
+    this.emitter = new VexEventEmitter();
+  }
+
+  emit(eventName: string | symbol, data: unknown): void {
+    this.emitter.emit(String(eventName), data);
+  }
+
+  on(eventName: string | symbol, listener: (...args: unknown[]) => void): void {
+    this.emitter.on(String(eventName), listener);
+  }
+
+  remove(
+    eventName: string | symbol,
+    listener: (...args: unknown[]) => void,
+  ): void {
+    this.emitter.remove(String(eventName), listener);
+  }
+
+  clearListeners(): void {
+    this.emitter.clearListeners();
+  }
 }
