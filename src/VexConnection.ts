@@ -148,7 +148,7 @@ export class VexSerialConnection extends VexEventTarget {
 
     if (port == null) return undefined;
 
-    if (port.readable == null) return false;
+    if (port.readable != null) return false;
 
     try {
       await port.open({ baudRate: 115200 });
