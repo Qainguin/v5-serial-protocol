@@ -132,7 +132,8 @@ export class ProgramIniConfig {
           .addObjProperty("name", 32)
           .addObjProperty("description", 256)
           .addObjProperty("icon", 16)
-          .addObjProperty("iconalt", 16),
+          .addObjProperty("iconalt", 16)
+          .addObjProperty("slot", 16),
       )
       .addComment("")
       .addSection(

@@ -338,7 +338,7 @@ export class V5Brain {
       const bin = files.filter(
         (e) => e != null && e.filename === programName + ".bin",
       )[0];
-      if (bin?.timestamp === 0 || bin.size === 0) continue;
+      if (bin == null || bin.timestamp === 0 || bin.size === 0) continue;
 
       const n = new Date();
       n.setTime(1000 * bin.timestamp);
