@@ -839,8 +839,9 @@ export class V5SerialDevice extends VexSerialDevice {
   constructor(defaultSerial: Serial) {
     super(defaultSerial);
 
+    let isLastRefreshComplete: boolean = true;
     setInterval(() => {
-      if (this.autoRefresh) {
+      if (this.autoRefresh && isLastRefreshComplete) {
         if (!this.isConnected) {
           this.state.brain.isAvailable = false;
           return;
@@ -850,7 +851,8 @@ export class V5SerialDevice extends VexSerialDevice {
           this.pauseRefreshOnFileTransfer &&
           !this.state._isFileTransferring
         ) {
-          void this.refresh();
+          isLastRefreshComplete = false;
+          void this.refresh().finally(() => (isLastRefreshComplete = true));
         }
       }
     }, 200);
