@@ -244,3 +244,51 @@ export enum SerialDeviceType {
 
   PROLIFIC = 8963,
 }
+
+/**
+ * found from {@link https://gist.github.com/meisZWFLZ/9ebdd694060137b44959ff7ac80ff4e8 gist}
+ * @see {@link https://drive.google.com/drive/folders/11pSNKakbXp7hOYBQ3HNwprFaLalnXOgR screen images}
+ */
+export enum SelectDashScreen {
+  HOME = 0,
+  BATTERY = 1,
+  LED = 3,
+  MATCH_CONFIG = 4,
+  MATCH_CONFIG_MORE = 5,
+  WIRING = 6,
+  RADIO = 8,
+  BRAIN = 10,
+  RUN_PROGRAM = 13,
+  DRIVE_PROGRAM_CONTROL_LEFT_MAPPING = 14,
+  DRIVE_PROGRAM_MENU = 15,
+  DEVICES = 16,
+  USER_PROGRAM_FOLDER = 17,
+  VEX_PROGRAM_FOLDER = 18,
+  SETTINGS = 19,
+  /** theres some scary looking stuff in here */
+  SCARY_CONFIGURATION = 20,
+  LANGUAGE = 21,
+  DRIVE_MOTOR_CONFIG = 22,
+  PROGRAM_MENU = 24,
+  SHUTDOWN = 25,
+  CONTROLLER_2_MAPPING = 26,
+  /** theres some even more scary looking stuff in here */
+  SCARY_CONFIGURATION_MORE = 27,
+  /** maybe this is scarier.. */
+  CONFIRM_XX = 28,
+  CONTROLLER_1_MAPPING = 29,
+  DRIVE_PROGRAM_CONTROL_DUAL_MAPPING = 30,
+  DRIVE_PROGRAM_CONTROL_SPLIT_MAPPING = 31,
+  DRIVE_PROGRAM_CONTROL_RIGHT_MAPPING = 32,
+  /** thats such a bad name */
+  MATCH_2_4_PLAYERS = 33,
+  EVENT_LOG = 34,
+  USER_PROGRAM_WIRING = 40,
+  CLAWBOT_PROGRAM_MENU = 41,
+  /** aka regulatory */
+  ABOUT = 42,
+  LANGUAGE_MORE = 43,
+  OBJECT_COLOR = 45,
+  SIGNATURE_ID = 46,
+  LOG_DATA = 47,
+}

@@ -14,6 +14,7 @@ import {
   type SlotNumber,
   USER_FLASH_USR_CODE_START,
   USER_PROG_CHUNK_SIZE,
+  type SelectDashScreen,
 } from "./Vex";
 import { VexEventTarget } from "./VexEvent";
 import { type ProgramIniConfig } from "./VexIniConfig";
@@ -51,6 +52,8 @@ import {
   GetDeviceStatusReplyD2HPacket,
   SendDashTouchH2DPacket,
   SendDashTouchReplyD2HPacket,
+  SelectDashH2DPacket,
+  type SelectDashReplyD2HPacket,
 } from "./VexPacket";
 import { type VexFirmwareVersion } from "./VexFirmwareVersion";
 
@@ -656,6 +659,17 @@ export class V5SerialConnection extends VexSerialConnection {
   ): Promise<SendDashTouchReplyD2HPacket | null> {
     const result = await this.writeDataAsync(
       new SendDashTouchH2DPacket(x, y, press),
+    );
+    return result instanceof SendDashTouchReplyD2HPacket ? result : null;
+  }
+
+  /** @param port untested */
+  async openScreen(
+    screen: number | SelectDashScreen,
+    port: number,
+  ): Promise<SelectDashReplyD2HPacket | null> {
+    const result = await this.writeDataAsync(
+      new SelectDashH2DPacket(screen, port),
     );
     return result instanceof SendDashTouchReplyD2HPacket ? result : null;
   }

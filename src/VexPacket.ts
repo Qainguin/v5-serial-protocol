@@ -16,6 +16,7 @@ import {
   type ISmartDeviceInfo,
   type MatchMode,
   type SlotNumber,
+  type SelectDashScreen,
 } from "./Vex";
 import { VexFirmwareVersion } from "./VexFirmwareVersion";
 
@@ -665,8 +666,8 @@ export class SelectDashH2DPacket extends DeviceBoundPacket {
   // UNSURE
   static COMMAND_ID = 86;
   static COMMAND_EXTENDED_ID = 43;
-
-  constructor(screen: number, port: number) {
+  /** @param port untested */
+  constructor(screen: number | SelectDashScreen, port: number) {
     const payload = new Uint8Array(2);
     payload[0] = screen;
     payload[1] = port;
