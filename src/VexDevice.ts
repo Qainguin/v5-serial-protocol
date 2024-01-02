@@ -40,6 +40,7 @@ import {
   GetProgramSlotInfoReplyD2HPacket,
   ReadKeyValueH2DPacket,
   ReadKeyValueReplyD2HPacket,
+  ScreenCaptureH2DPacket,
   WriteKeyValueH2DPacket,
   WriteKeyValueReplyD2HPacket,
 } from "./VexPacket";
@@ -678,6 +679,62 @@ export class V5Brain {
       this.state._isFileTransferring = false;
       throw e;
     }
+  }
+
+  /**
+   *
+   * @param progressCallback Informs the progress of the download.
+   * @returns array of bytes where each pixel is represented by 3 consecutive bytes (rgb).
+   * This array's length is 272 width * 480 height * 3 channels = 391680 bytes.
+   */
+  async captureScreen(
+    progressCallback?: (current: number, total: number) => void,
+  ): Promise<Uint8Array | undefined> {
+    // pros implementation: https://github.com/purduesigbots/pros-cli/blob/5ee18656faeb48f51d680bab4b53d5b59cc5a7d5/pros/serial/devices/vex/v5_device.py#L578
+
+    const conn = this.state._instance.connection;
+
+    if (conn == null || !conn.isConnected) return undefined;
+    await new Promise((resolve) => {
+      conn.writeData(new ScreenCaptureH2DPacket(0), resolve);
+    });
+
+    const height = 272;
+    const width = 480;
+    const channels = 3;
+    const messageWidth = 512; // brain goofiness
+    const messageChannels = 4; // brain goofiness
+
+    let buf = await conn?.downloadFileToHost(
+      {
+        filename: "screen",
+        vendor: FileVendor.SYS,
+        loadAddress: 0,
+        size: messageWidth * height * messageChannels, // RGBA ig
+      },
+      FileDownloadTarget.FILE_TARGET_CBUF,
+      progressCallback,
+    );
+    if (buf == null) return;
+
+    buf = buf
+      // remove the extra columns
+      .filter(
+        (_byte, i) =>
+          i % (messageWidth * messageChannels) < width * messageChannels,
+      )
+      // remove the fake alpha channel
+      .filter((_byte, i) => (i + 1) % messageChannels !== 0);
+
+    // reverse the pixel (bgr -> rgb)
+    for (let i = 0; i < buf.length; i += channels) {
+      const px = buf.slice(i, i + channels).reverse();
+      for (let j = 0; j < px.length; j++) {
+        buf[i + j] = px[j];
+      }
+    }
+
+    return buf;
   }
 }
 
