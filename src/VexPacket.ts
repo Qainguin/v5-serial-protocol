@@ -1334,12 +1334,12 @@ export class SelectDashReplyD2HPacket extends HostBoundPacket {
   static COMMAND_EXTENDED_ID = 43;
 }
 
-export class EnableDeshReplyD2HPacket extends HostBoundPacket {
+export class EnableDashReplyD2HPacket extends HostBoundPacket {
   static COMMAND_ID = 86;
   static COMMAND_EXTENDED_ID = 44;
 }
 
-export class DisableDeshReplyD2HPacket extends HostBoundPacket {
+export class DisableDashReplyD2HPacket extends HostBoundPacket {
   static COMMAND_ID = 86;
   static COMMAND_EXTENDED_ID = 45;
 }
