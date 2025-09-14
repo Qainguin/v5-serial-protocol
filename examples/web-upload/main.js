@@ -1,7 +1,7 @@
 import {
   V5SerialDevice,
   ProgramIniConfig,
-} from "../../dist/v5-serial-protocol.es.js";
+} from "./src/v5-serial-protocol.es.js";
 
 const logEl = document.getElementById("log");
 const connectBtn = document.getElementById("connect-btn");
